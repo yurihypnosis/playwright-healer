@@ -1,0 +1,12 @@
+{
+  "name": "@relocator/benchmarks",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "bench:similo": "node src/run-von-similo.ts",
+    "fetch-data": "./fetch-data.sh"
+  },
+  "dependencies": {
+    "@relocator/core": "workspace:*"
+  }
+}

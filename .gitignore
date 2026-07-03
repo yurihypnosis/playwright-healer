@@ -1,0 +1,7 @@
+node_modules/
+dist/
+*.tsbuildinfo
+.relocator/events/
+.relocator/store.db
+benchmarks/data/
+.DS_Store
