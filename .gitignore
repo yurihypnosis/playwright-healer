@@ -5,3 +5,7 @@ dist/
 .relocator/store.db
 benchmarks/data/
 .DS_Store
+.relocator-test/
+*.generated.ts
+test-results/
+playwright-report/
