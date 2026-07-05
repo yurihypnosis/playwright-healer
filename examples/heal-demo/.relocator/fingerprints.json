@@ -35,8 +35,8 @@
         "h": 21
       },
       "isVisible": true,
-      "capturedAt": "2026-07-05T04:20:14.910Z",
-      "runId": "2026-07-05T04-20-14-745Z-4911",
+      "capturedAt": "2026-07-05T11:01:33.153Z",
+      "runId": "2026-07-05T11-01-32-888Z-11710",
       "captureCount": 1,
       "callsite": {
         "file": "file:///Users/yamamotoyu/Documents/workspace/coding/playwright-healer/examples/heal-demo/tests/shop.spec.ts",
@@ -76,8 +76,8 @@
         "h": 21
       },
       "isVisible": true,
-      "capturedAt": "2026-07-05T04:20:14.863Z",
-      "runId": "2026-07-05T04-20-14-745Z-4911",
+      "capturedAt": "2026-07-05T11:01:33.083Z",
+      "runId": "2026-07-05T11-01-32-888Z-11710",
       "captureCount": 1,
       "callsite": {
         "file": "file:///Users/yamamotoyu/Documents/workspace/coding/playwright-healer/examples/heal-demo/tests/shop.spec.ts",

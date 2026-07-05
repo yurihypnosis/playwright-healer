@@ -7,8 +7,8 @@
  *   reporter: [['list'], ['@relocator/reporter', { dir: '.relocator' }]]
  */
 
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import type { Reporter } from '@playwright/test/reporter';
 import type { HealingEvent } from '@relocator/core/store';
 import {
@@ -27,18 +27,24 @@ export {
   summarize,
 } from './summary.js';
 export type { HealSummary, RecurringHeal } from './summary.js';
+export { renderHtmlReport } from './html.js';
+import { renderHtmlReport } from './html.js';
 
 export interface RelocatorReporterOptions {
   /** Relocator store directory (same as the fixture's `dir`). Default '.relocator'. */
   dir?: string;
+  /** Write a self-contained HTML heal report to this path after the run. */
+  html?: string;
 }
 
 export default class RelocatorReporter implements Reporter {
   private readonly eventsDir: string;
+  private readonly htmlPath: string | undefined;
   private startTime = 0;
 
   constructor(options: RelocatorReporterOptions = {}) {
     this.eventsDir = join(options.dir ?? '.relocator', 'events');
+    this.htmlPath = options.html;
   }
 
   onBegin(): void {
@@ -73,6 +79,11 @@ export default class RelocatorReporter implements Reporter {
     console.log(`\n${formatSummary(summary)}`);
     const recurring = findRecurringHeals(this.readEvents(null));
     if (recurring.length > 0) console.log(formatRecurringHeals(recurring));
+    if (this.htmlPath) {
+      mkdirSync(dirname(this.htmlPath), { recursive: true });
+      writeFileSync(this.htmlPath, renderHtmlReport(events), 'utf8');
+      console.log(`Relocator HTML report: ${this.htmlPath}`);
+    }
     if (process.env['GITHUB_ACTIONS']) {
       for (const line of formatGithubAnnotations(summary)) console.log(line);
     }

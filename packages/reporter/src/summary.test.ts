@@ -100,3 +100,26 @@ describe('findRecurringHeals', () => {
     expect(formatRecurringHeals(recurring)).toBe('');
   });
 });
+
+describe('renderHtmlReport', () => {
+  it('renders a self-contained page with stats, drill-down, and escaping', async () => {
+    const { renderHtmlReport } = await import('./html.js');
+    const html = renderHtmlReport([
+      event({}),
+      event({
+        eventId: 'e2',
+        outcome: 'rejected',
+        adoptedLocator: null,
+        originalLocator: 'getByText("<script>alert(1)</script>")',
+      }),
+    ]);
+    expect(html).toContain('<!DOCTYPE html>');
+    expect(html).toContain('Relocator heal report');
+    expect(html).toContain('healed'); // stat + badge
+    expect(html).toContain("getByRole('button', { name: 'Add' })");
+    expect(html).toContain('&lt;script&gt;'); // escaped, not executable
+    expect(html).not.toContain('<script>alert');
+    expect(html).not.toContain('src='); // no external assets
+    expect(html).toContain('76%'); // normalized score drill-down
+  });
+});
