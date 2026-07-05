@@ -12,6 +12,7 @@ import {
   RELOCATOR_PROPERTIES,
   calcSimilarityScore,
   fingerprintToWidgetProps,
+  mergeOverlapping,
   rankCandidates,
   type ElementFingerprint,
   type WidgetProps,
@@ -306,6 +307,24 @@ function collectOperableElements(selector: string, maxCandidates: number): Eleme
 const ADOPT_ATTR = 'data-relocator-c';
 let adoptNonce = 0;
 
+/** Preference order for a VON group's actionable representative (§6.2). */
+const ACTIONABLE_TAGS = ['button', 'a', 'input', 'select', 'textarea'];
+
+function pickRepresentative(members: readonly { el: Element; fp: ElementFingerprint }[]): {
+  el: Element;
+  fp: ElementFingerprint;
+} {
+  for (const tag of ACTIONABLE_TAGS) {
+    const match = members.find((m) => m.fp.tag === tag);
+    if (match) return match;
+  }
+  const interactive = members.find(
+    (m) => m.el.hasAttribute('onclick') || m.el.hasAttribute('role') || m.el.hasAttribute('tabindex'),
+  );
+  // Fall back to the innermost node (last in document order).
+  return interactive ?? members[members.length - 1]!;
+}
+
 export function collectAndScore(request: ScoreRequest): ScoreResponse {
   const elements = collectOperableElements(
     candidateSelector(request.testIdAttribute),
@@ -314,31 +333,39 @@ export function collectAndScore(request: ScoreRequest): ScoreResponse {
 
   const options: CaptureOptions = { testIdAttribute: request.testIdAttribute };
   const captured = elements.map((el) => ({ el, fp: captureElement(el, options) }));
-  const ranked = rankCandidates(
-    request.target,
+
+  // VON merge (§6.2): visually overlapping nodes become one virtual
+  // candidate whose ' || '-joined values score by max-pairwise match.
+  const groups = mergeOverlapping(
     captured,
+    (c) => c.fp.rect,
     (c) => fingerprintToWidgetProps(c.fp),
-    RELOCATOR_PROPERTIES,
-  );
+  ).map((group) => ({
+    props: group.props,
+    representative: pickRepresentative(group.members),
+  }));
+
+  const ranked = rankCandidates(request.target, groups, (g) => g.props, RELOCATOR_PROPERTIES);
 
   const max = targetMaxScore(request.target);
   adoptNonce++;
   const top = ranked.slice(0, request.topN).map((r, i) => {
     const tag = `h${adoptNonce}-${i}`;
-    r.widget.el.setAttribute(ADOPT_ATTR, tag);
+    const rep = r.widget.representative;
+    rep.el.setAttribute(ADOPT_ATTR, tag);
     return {
       score: r.score,
       normalizedScore: max > 0 ? r.score / max : 0,
       breakdown: r.breakdown,
-      props: fingerprintToWidgetProps(r.widget.fp),
-      xpath: r.widget.fp.absoluteXPath,
+      props: r.widget.props,
+      xpath: rep.fp.absoluteXPath,
       adoptSelector: `[${ADOPT_ATTR}="${tag}"]`,
-      suggestedLocator: suggestLocator(r.widget.fp),
-      summary: summarize(r.widget.el),
+      suggestedLocator: suggestLocator(rep.fp),
+      summary: summarize(rep.el),
     };
   });
 
-  return { candidates: top, candidateCount: captured.length, targetMaxScore: max };
+  return { candidates: top, candidateCount: groups.length, targetMaxScore: max };
 }
 
 declare global {

@@ -12,6 +12,9 @@ export type {
   WidgetProps,
 } from './scoring/similo.js';
 
+export { VON_IOU_THRESHOLD, intersectionOverUnion, mergeOverlapping } from './scoring/von.js';
+export type { VonGroup, VonRect } from './scoring/von.js';
+
 export { evaluateGate, iqrUpperOutlierThreshold, thresholdGate } from './gate/outlier.js';
 export type { GateDecision, GateResult, ScoredForGate, ThresholdGateConfig } from './gate/outlier.js';
 
