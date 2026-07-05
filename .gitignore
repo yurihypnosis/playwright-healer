@@ -13,3 +13,4 @@ playwright-report/
 .relocator-shadow-test/
 .relocator-mask-test/
 .relocator-detect-test/
+.relocator-iframe-test/

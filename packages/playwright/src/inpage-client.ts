@@ -3,10 +3,13 @@
  * page and forwards capture/score calls.
  */
 
-import type { ElementHandle, Page } from '@playwright/test';
+import type { ElementHandle, Frame, Page } from '@playwright/test';
 import type { ElementFingerprint } from '@relocator/core';
 import { INPAGE_BUNDLE } from './inpage-bundle.generated.js';
 import type { ScoreRequest, ScoreResponse } from './inpage/main.js';
+
+/** Frames have their own JS world, so each needs its own install (§9.5). */
+export type EvalContext = Page | Frame;
 
 type InpageGlobal = typeof globalThis & {
   __relocatorInpage?: {
@@ -18,14 +21,14 @@ type InpageGlobal = typeof globalThis & {
   };
 };
 
-async function ensureInstalled(page: Page): Promise<void> {
+async function ensureInstalled(page: EvalContext): Promise<void> {
   await page.evaluate(
     `(() => { if (!globalThis.__relocatorInpage) { ${INPAGE_BUNDLE} } })()`,
   );
 }
 
 export async function captureFingerprint(
-  page: Page,
+  page: EvalContext,
   handle: ElementHandle,
   testIdAttribute: string,
   redact?: string[],
@@ -37,7 +40,7 @@ export async function captureFingerprint(
   );
 }
 
-export async function collectAndScore(page: Page, request: ScoreRequest): Promise<ScoreResponse> {
+export async function collectAndScore(page: EvalContext, request: ScoreRequest): Promise<ScoreResponse> {
   await ensureInstalled(page);
   return page.evaluate(
     (req) => (globalThis as InpageGlobal).__relocatorInpage!.collectAndScore(req),

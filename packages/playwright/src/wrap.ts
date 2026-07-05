@@ -15,6 +15,13 @@ import { chainKey, serializeCall } from './keys.js';
 export interface LocatorMeta {
   key: string;
   callsite: Callsite | undefined;
+  /**
+   * Chain of frameLocator selectors from the page down to this locator's
+   * frame (§9.5). Empty/absent = main frame. Gives each frame its own
+   * fingerprint space (the selectors are also baked into `key`) and tells
+   * the engine which frame to capture/score in.
+   */
+  framePath?: string[];
 }
 
 export interface ActionFailure {
@@ -156,6 +163,48 @@ export function captureCallsite(): Callsite | undefined {
   return undefined;
 }
 
+/**
+ * Wrap a FrameLocator (§9.5): its locator factories produce wrapped
+ * locators whose keys are prefixed with the frame chain and whose meta
+ * carries the framePath; nested frameLocator calls extend the chain.
+ */
+function wrapFrameLocator(
+  frameLocator: object,
+  hooks: WrapHooks,
+  framePath: string[],
+  keyPrefix: string,
+): object {
+  return new Proxy(frameLocator, {
+    get(target, prop) {
+      if (prop === RAW_TARGET) return target;
+      const value = Reflect.get(target, prop, target);
+      if (typeof value !== 'function') return value;
+      const name = typeof prop === 'string' ? prop : '';
+
+      if (name === 'frameLocator') {
+        return (...args: unknown[]) =>
+          wrapFrameLocator(
+            (value as (...a: unknown[]) => object).apply(target, unwrapArgs(args)),
+            hooks,
+            [...framePath, String(args[0])],
+            chainKey(keyPrefix, serializeCall(name, args)),
+          );
+      }
+
+      if (PAGE_LOCATOR_FACTORIES.has(name)) {
+        return (...args: unknown[]) =>
+          wrapLocator((value as (...a: unknown[]) => Locator).apply(target, unwrapArgs(args)), hooks, {
+            key: chainKey(keyPrefix, serializeCall(name, args)),
+            callsite: captureCallsite(),
+            framePath,
+          });
+      }
+
+      return (...args: unknown[]) => (value as (...a: unknown[]) => unknown).apply(target, unwrapArgs(args));
+    },
+  });
+}
+
 export function wrapLocator(locator: Locator, hooks: WrapHooks, meta: LocatorMeta): Locator {
   return new Proxy(locator, {
     get(target, prop) {
@@ -165,11 +214,22 @@ export function wrapLocator(locator: Locator, hooks: WrapHooks, meta: LocatorMet
       if (typeof value !== 'function') return value;
       const name = typeof prop === 'string' ? prop : '';
 
+      if (name === 'frameLocator') {
+        return (...args: unknown[]) =>
+          wrapFrameLocator(
+            (value as (...a: unknown[]) => object).apply(target, unwrapArgs(args)),
+            hooks,
+            [...(meta.framePath ?? []), String(args[0])],
+            chainKey(meta.key, serializeCall(name, args)),
+          );
+      }
+
       if (LOCATOR_CHAIN_METHODS.has(name)) {
         return (...args: unknown[]) =>
           wrapLocator((value as (...a: unknown[]) => Locator).apply(target, unwrapArgs(args)), hooks, {
             key: chainKey(meta.key, serializeCall(name, args)),
             callsite: captureCallsite() ?? meta.callsite,
+            ...(meta.framePath ? { framePath: meta.framePath } : {}),
           });
       }
 
@@ -219,6 +279,16 @@ export function wrapPage(page: Page, hooks: WrapHooks): Page {
       const value = Reflect.get(target, prop, target);
       if (typeof value !== 'function') return value;
       const name = typeof prop === 'string' ? prop : '';
+
+      if (name === 'frameLocator') {
+        return (...args: unknown[]) =>
+          wrapFrameLocator(
+            (value as (...a: unknown[]) => object).apply(target, unwrapArgs(args)),
+            hooks,
+            [String(args[0])],
+            serializeCall(name, args),
+          );
+      }
 
       if (PAGE_LOCATOR_FACTORIES.has(name)) {
         return (...args: unknown[]) =>
