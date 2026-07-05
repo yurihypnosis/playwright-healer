@@ -4,9 +4,12 @@
   "type": "module",
   "scripts": {
     "bench:similo": "node src/run-von-similo.ts",
+    "bench:mutations": "node src/run-mutations.ts",
     "fetch-data": "./fetch-data.sh"
   },
   "dependencies": {
-    "@relocator/core": "workspace:*"
+    "@relocator/core": "workspace:*",
+    "@relocator/playwright": "workspace:*",
+    "playwright": "^1.53.0"
   }
 }

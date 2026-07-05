@@ -12,8 +12,8 @@ export type {
   WidgetProps,
 } from './scoring/similo.js';
 
-export { evaluateGate, iqrUpperOutlierThreshold } from './gate/outlier.js';
-export type { GateResult } from './gate/outlier.js';
+export { evaluateGate, iqrUpperOutlierThreshold, thresholdGate } from './gate/outlier.js';
+export type { GateDecision, GateResult, ScoredForGate, ThresholdGateConfig } from './gate/outlier.js';
 
 export { classifyFailure, isHealable } from './classify/failure.js';
 export type { FailureClass } from './classify/failure.js';

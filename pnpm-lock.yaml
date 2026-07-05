@@ -20,6 +20,12 @@ importers:
       '@relocator/core':
         specifier: workspace:*
         version: link:../packages/core
+      '@relocator/playwright':
+        specifier: workspace:*
+        version: link:../packages/playwright
+      playwright:
+        specifier: ^1.53.0
+        version: 1.61.1
 
   packages/core: {}
 

@@ -54,17 +54,36 @@ JSON store)               properties (Similo-family)
 
 ## Benchmark honesty
 
-Our Tier 1 engine reproduces the published VON Similo results **exactly** on
-the authors' [replication dataset](https://github.com/michelnass/SimiloLLM)
+**1. Algorithm reproduction.** Our Tier 1 engine reproduces the published
+VON Similo results **exactly** on the authors'
+[replication dataset](https://github.com/michelnass/SimiloLLM)
 (48 real-world sites, 804 relocation oracles):
 
 | Metric | Reference (Java) | Relocator (TS port) |
 |---|---|---|
 | Correct top-1 | 734 / 804 (91.3%) | **734 / 804 (91.3%)** |
-| Deterministic gate resolves | — | 70% of cases at 95.9% precision |
 
 CI fails if the reproduction ever drifts by a single case
 (`pnpm bench:similo`).
+
+**2. Mutation harness with ground truth** (`pnpm bench:mutations`): a
+realistic page (16 targets incl. near-identical sibling buttons) under 8
+scripted rot mutations — id renames, testid removal, CSS-in-JS class
+hashing, wrapper divs, sibling reordering, text rewording, all combined,
+and true element removal. Every verdict is checked against a
+`data-truth` key the engine cannot see:
+
+| Metric | Goal | Measured |
+|---|---|---|
+| False heals (wrong element adopted) | < 1% | **0.00%** (0/128) |
+| Truly-removed targets refused | all | **4/4** |
+| Tier 2 deterministic heal rate | — | 73.4% |
+| Ambiguous residue escalated to Tier 3 | ~30% (paper) | 28.1%, top-1 correct in 33/36 |
+| Full-cascade ceiling (Tier 2 + Tier 3) | ≥ 90% | **100%** |
+| In-page scoring latency | p50 < 50ms | **p50 3.2ms / p95 4.1ms** |
+
+These quality gates run in CI: a false-heal rate ≥ 2%, a deterministic
+rate < 70%, or a cascade ceiling < 90% fails the build.
 
 ## What never gets healed
 
@@ -115,10 +134,10 @@ export const test = withRelocator(base, {
 
 Working today: record (Phase A), Tier 1+2+3 heal with full audit events,
 patch proposals (`relocator-patch` → diff, `--write` to apply), run
-reporter with GitHub Actions annotations, policy profiles, and exact
-benchmark reproduction gated in CI. Planned: mutation-harness benchmark
-(false-heal rate measurement), VON merging, iframe/shadow-DOM traversal,
-PR-comment/auto-PR patch modes, HTML report drill-down, npm publish.
+reporter with GitHub Actions annotations, policy profiles, and both
+benchmarks (replication + mutation harness) gated in CI. Planned: VON
+merging, iframe/shadow-DOM traversal, PR-comment/auto-PR patch modes,
+HTML report drill-down, npm publish.
 
 Positioning: complementary to Playwright's official dev-time Healer agent —
 Relocator is the runtime safety net (`ms`-scale, deterministic, no agent

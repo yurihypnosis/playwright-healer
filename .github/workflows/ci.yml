@@ -26,6 +26,8 @@ jobs:
           pnpm --filter @relocator/spike-playwright-proxy exec playwright install --with-deps chromium
           pnpm --filter @relocator/spike-playwright-proxy test
           pnpm --filter @relocator/playwright test
+      - name: Mutation harness (heal rate / false-heal rate quality gates)
+        run: pnpm bench:mutations
 
   benchmark:
     runs-on: ubuntu-latest

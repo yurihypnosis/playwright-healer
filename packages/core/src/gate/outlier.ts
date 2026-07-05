@@ -46,3 +46,38 @@ export function evaluateGate(scores: readonly number[]): GateResult {
   const outlierCount = scores.filter((s) => s >= threshold).length;
   return { threshold, outlierCount, unique: outlierCount === 1 };
 }
+
+/** Tier 2 threshold gate (design §6.3) — shared by the runtime engine and benchmarks. */
+export interface ThresholdGateConfig {
+  /** Minimum normalized top score (fraction of the target's max). */
+  abs: number;
+  /** Minimum normalized separation between top-1 and top-2. */
+  gap: number;
+  /** Minimum raw-score ratio between top-1 and top-2. */
+  ratio: number;
+}
+
+export interface ScoredForGate {
+  score: number;
+  normalizedScore: number;
+}
+
+export type GateDecision = 'adopt' | 'reject' | 'ambiguous';
+
+/**
+ * reject  — nothing sufficiently similar exists (likely a real removal)
+ * adopt   — a clear, separated winner (deterministic heal, no LLM)
+ * ambiguous — plausible winner without separation (Tier 3 territory)
+ */
+export function thresholdGate(
+  top: ScoredForGate | undefined,
+  second: ScoredForGate | undefined,
+  config: ThresholdGateConfig,
+): GateDecision {
+  if (!top || top.normalizedScore < config.abs) return 'reject';
+  const separated =
+    !second ||
+    (top.normalizedScore - second.normalizedScore >= config.gap &&
+      (second.score === 0 || top.score / second.score >= config.ratio));
+  return separated ? 'adopt' : 'ambiguous';
+}

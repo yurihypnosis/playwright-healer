@@ -9,7 +9,8 @@
     "build": "pnpm -r build",
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck",
-    "bench:similo": "pnpm --filter @relocator/benchmarks bench:similo"
+    "bench:similo": "pnpm --filter @relocator/benchmarks bench:similo",
+    "bench:mutations": "pnpm --filter @relocator/benchmarks bench:mutations"
   },
   "devDependencies": {
     "typescript": "^5.7.0",
