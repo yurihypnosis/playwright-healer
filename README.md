@@ -45,10 +45,12 @@ JSON store)               properties (Similo-family)
   statistically unambiguous (absolute score, gap, and ratio thresholds).
   If nothing similar exists, Relocator **refuses to heal** — a deleted
   feature must fail its test.
-- **Tier 3 — LLM disambiguation (planned).** Only the ambiguous residue
+- **Tier 3 — LLM disambiguation (optional).** Only the ambiguous residue
   (~30% in benchmarks) is sent — top-10 candidate property JSON, no
-  screenshots, no DOM dumps — to a provider of your choice (Anthropic /
-  OpenAI / Ollama for fully-local).
+  screenshots, no DOM dumps — to a provider of your choice (Anthropic, or
+  Ollama for fully-local). One call per heal, strict JSON verdict,
+  `chosen: null` allowed, per-run call cap, confidence threshold. Without a
+  provider, ambiguous cases simply fail — Tiers 1–2 need no API key.
 
 ## Benchmark honesty
 
@@ -86,17 +88,37 @@ Actions warnings on the exact test-file lines that need updating.
 | Package | Purpose |
 |---|---|
 | `packages/core` | Scoring engine, outlier gate, failure classifier, stores. Pure TS, browser-safe scoring — the same code runs in benchmarks and inside the page. |
-| `packages/playwright` | `withRelocator` fixture, page/locator proxy, in-page bundle. |
+| `packages/playwright` | `withRelocator` fixture, page/locator proxy, in-page bundle, healing cascade, policy profiles. |
+| `packages/llm` | Tier 3 providers: Anthropic (structured outputs) and Ollama (local). |
+| `packages/patch` | `relocator-patch` CLI: healing events → reviewable locator diffs (ts-morph). |
 | `packages/reporter` | Run summary + CI annotations. |
 | `benchmarks` | VON Similo replication harness. |
 | `spikes/playwright-proxy` | Proxy-integration validation suite (8 go/no-go checks). |
 
+## Environment profiles
+
+Behavior per environment is declared once and switched with
+`RELOCATOR_PROFILE`:
+
+```ts
+export const test = withRelocator(base, {
+  llm: { provider: new AnthropicProvider() },
+  profiles: {
+    ci: { maxTier: 2, record: false },          // deterministic only, don't touch baselines
+    nightly: { record: true },                   // refresh baselines on green main
+    monitoring: { maxTier: 0 },                  // detect, never heal
+  },
+});
+```
+
 ## Status
 
-Early development, design-complete. Working today: record, Tier 1+2 heal,
-audit events, reporter, exact benchmark reproduction. Planned: patch
-proposals (ts-morph codemods → PR), LLM tier, policy profiles, VON merging,
-iframe/shadow-DOM traversal.
+Working today: record (Phase A), Tier 1+2+3 heal with full audit events,
+patch proposals (`relocator-patch` → diff, `--write` to apply), run
+reporter with GitHub Actions annotations, policy profiles, and exact
+benchmark reproduction gated in CI. Planned: mutation-harness benchmark
+(false-heal rate measurement), VON merging, iframe/shadow-DOM traversal,
+PR-comment/auto-PR patch modes, HTML report drill-down, npm publish.
 
 Positioning: complementary to Playwright's official dev-time Healer agent —
 Relocator is the runtime safety net (`ms`-scale, deterministic, no agent

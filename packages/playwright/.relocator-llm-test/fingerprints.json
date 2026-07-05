@@ -32,8 +32,8 @@
         "h": 21
       },
       "isVisible": true,
-      "capturedAt": "2026-07-05T03:58:54.412Z",
-      "runId": "2026-07-05T03-58-54-307Z-2764",
+      "capturedAt": "2026-07-05T04:00:45.625Z",
+      "runId": "2026-07-05T04-00-45-526Z-3238",
       "captureCount": 1,
       "callsite": {
         "file": "file:///Users/yamamotoyu/Documents/workspace/coding/playwright-healer/packages/playwright/tests/llm-heal.spec.ts",
