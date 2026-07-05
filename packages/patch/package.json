@@ -1,0 +1,29 @@
+{
+  "name": "@relocator/patch",
+  "version": "0.0.1",
+  "description": "Post-run locator patch proposals from Relocator healing events (ts-morph codemod)",
+  "license": "Apache-2.0",
+  "type": "module",
+  "bin": {
+    "relocator-patch": "./dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@relocator/core": "workspace:*",
+    "ts-morph": "^26.0.0"
+  }
+}
