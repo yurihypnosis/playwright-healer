@@ -1,0 +1,89 @@
+{
+  "version": 1,
+  "fingerprints": [
+    {
+      "locatorKey": "getByTestId(\"apply-coupon\")",
+      "pagePattern": "about:blank",
+      "role": "button",
+      "accessibleName": "Apply coupon",
+      "tag": "button",
+      "visibleText": "Apply coupon",
+      "neighborText": [
+        "mini",
+        "shop",
+        "apply",
+        "coupon",
+        "applied:",
+        "save10"
+      ],
+      "id": "apply-coupon",
+      "name": null,
+      "classList": [],
+      "testId": "apply-coupon",
+      "placeholder": null,
+      "href": null,
+      "alt": null,
+      "type": null,
+      "absoluteXPath": "/html[1]/body[1]/button[1]",
+      "idRelativeXPath": "//*[@id='apply-coupon']",
+      "siblingIndex": 2,
+      "depth": 2,
+      "rect": {
+        "x": 165,
+        "y": 66.4375,
+        "w": 96.78125,
+        "h": 21
+      },
+      "isVisible": true,
+      "capturedAt": "2026-07-05T04:20:14.910Z",
+      "runId": "2026-07-05T04-20-14-745Z-4911",
+      "captureCount": 1,
+      "callsite": {
+        "file": "file:///Users/yamamotoyu/Documents/workspace/coding/playwright-healer/examples/heal-demo/tests/shop.spec.ts",
+        "line": 38,
+        "column": 16
+      }
+    },
+    {
+      "locatorKey": "locator(\"#coupon\")",
+      "pagePattern": "about:blank",
+      "role": "textbox",
+      "accessibleName": "Coupon code",
+      "tag": "input",
+      "visibleText": null,
+      "neighborText": [
+        "mini",
+        "shop",
+        "apply",
+        "coupon"
+      ],
+      "id": "coupon",
+      "name": null,
+      "classList": [],
+      "testId": null,
+      "placeholder": "Coupon code",
+      "href": null,
+      "alt": null,
+      "type": null,
+      "absoluteXPath": "/html[1]/body[1]/input[1]",
+      "idRelativeXPath": "//*[@id='coupon']",
+      "siblingIndex": 1,
+      "depth": 2,
+      "rect": {
+        "x": 8,
+        "y": 66.4375,
+        "w": 153,
+        "h": 21
+      },
+      "isVisible": true,
+      "capturedAt": "2026-07-05T04:20:14.863Z",
+      "runId": "2026-07-05T04-20-14-745Z-4911",
+      "captureCount": 1,
+      "callsite": {
+        "file": "file:///Users/yamamotoyu/Documents/workspace/coding/playwright-healer/examples/heal-demo/tests/shop.spec.ts",
+        "line": 37,
+        "column": 16
+      }
+    }
+  ]
+}

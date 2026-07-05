@@ -1,0 +1,13 @@
+{
+  "name": "@relocator/example-heal-demo",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "demo": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.53.0",
+    "@relocator/playwright": "workspace:*",
+    "@relocator/reporter": "workspace:*"
+  }
+}

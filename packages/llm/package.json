@@ -22,5 +22,21 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.90.0",
     "@relocator/core": "workspace:*"
-  }
+  },
+  "keywords": [
+    "playwright",
+    "self-healing",
+    "selectors",
+    "test-automation",
+    "locators",
+    "e2e",
+    "flaky-tests"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "sideEffects": false
 }

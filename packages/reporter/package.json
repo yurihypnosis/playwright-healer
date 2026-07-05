@@ -27,5 +27,21 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.53.0"
-  }
+  },
+  "keywords": [
+    "playwright",
+    "self-healing",
+    "selectors",
+    "test-automation",
+    "locators",
+    "e2e",
+    "flaky-tests"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "sideEffects": false
 }

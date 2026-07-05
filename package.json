@@ -13,6 +13,7 @@
     "bench:mutations": "pnpm --filter @relocator/benchmarks bench:mutations"
   },
   "devDependencies": {
+    "@changesets/cli": "^2.31.0",
     "typescript": "^5.7.0",
     "vitest": "^3.0.0"
   }
