@@ -27,6 +27,52 @@ export interface ActionFailure {
 export interface WrapHooks {
   onActionFailure?: (raw: Locator, failure: ActionFailure) => Promise<Locator | null>;
   onActionSuccess?: (raw: Locator, method: string, meta: LocatorMeta) => void;
+  /**
+   * Timeout split (design §9.2): cap the FIRST attempt at this many ms so
+   * healing starts before the full action timeout elapses. Only applied
+   * when the caller didn't pass an explicit timeout; the healed retry runs
+   * with the caller's original options (full budget).
+   */
+  initialActionTimeoutMs?: number;
+}
+
+/** Methods whose first argument is a payload object, not an options bag. */
+const PAYLOAD_FIRST_METHODS = new Set(['selectOption', 'setInputFiles']);
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  if (value === null || typeof value !== 'object') return false;
+  const proto = Object.getPrototypeOf(value) as object | null;
+  return proto === Object.prototype || proto === null;
+}
+
+/**
+ * Inject the split timeout into an action call. Every Playwright action
+ * accepts a trailing options object; we merge when the last arg already is
+ * one, and append otherwise. Explicit caller timeouts are always respected.
+ */
+export function withInitialTimeout(
+  method: string,
+  args: unknown[],
+  timeoutMs: number,
+): unknown[] {
+  const last = args[args.length - 1];
+  const lastIsOptions =
+    isPlainObject(last) && (!PAYLOAD_FIRST_METHODS.has(method) || args.length >= 2);
+  if (lastIsOptions) {
+    if ('timeout' in last) return args;
+    return [...args.slice(0, -1), { ...last, timeout: timeoutMs }];
+  }
+  return [...args, { timeout: timeoutMs }];
+}
+
+/**
+ * 60% of the configured action timeout, floored at min(5s, T) so a slow but
+ * valid locator is never healed prematurely (§9.2). 0 (Playwright's
+ * "no action timeout") stays unsplit.
+ */
+export function computeInitialActionTimeout(configuredMs: number): number | undefined {
+  if (!Number.isFinite(configuredMs) || configuredMs <= 0) return undefined;
+  return Math.round(Math.max(Math.min(5_000, configuredMs), configuredMs * 0.6));
 }
 
 const PAGE_LOCATOR_FACTORIES = new Set([
@@ -129,10 +175,14 @@ export function wrapLocator(locator: Locator, hooks: WrapHooks, meta: LocatorMet
 
       if (LOCATOR_ACTION_METHODS.has(name)) {
         return async (...args: unknown[]) => {
+          const initialArgs =
+            hooks.initialActionTimeoutMs !== undefined
+              ? withInitialTimeout(name, args, hooks.initialActionTimeoutMs)
+              : args;
           try {
             const result = await (value as (...a: unknown[]) => Promise<unknown>).apply(
               target,
-              unwrapArgs(args),
+              unwrapArgs(initialArgs),
             );
             hooks.onActionSuccess?.(target, name, meta);
             return result;

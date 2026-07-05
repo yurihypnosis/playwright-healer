@@ -17,7 +17,7 @@
   "scripts": {
     "build": "node build-inpage.mjs && tsc -p tsconfig.json",
     "typecheck": "node build-inpage.mjs && tsc -p tsconfig.json --noEmit",
-    "test": "node build-inpage.mjs && playwright test"
+    "test": "node build-inpage.mjs && vitest run src && playwright test"
   },
   "dependencies": {
     "@relocator/core": "workspace:*"
