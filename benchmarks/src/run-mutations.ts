@@ -66,6 +66,8 @@ for (const key of truthKeys) {
 console.log(`targets: ${truthKeys.length}, mutations: ${MUTATIONS.length}\n`);
 
 const results: CaseResult[] = [];
+let suggestionSuccesses = 0;
+const suggestionFailures: string[] = [];
 
 for (const mutation of MUTATIONS) {
   await page.setContent(BASE_APP);
@@ -93,6 +95,28 @@ for (const mutation of MUTATIONS) {
     const top = response.candidates[0];
     const topTruth = top && decision !== 'reject' ? await truthOfXpath(top.xpath) : null;
     const adoptedTruth = decision === 'adopt' ? topTruth : null;
+
+    // §6.5 patch-quality check: the suggested locator must resolve to
+    // exactly the adopted element (evaluated with real Playwright APIs).
+    if (decision === 'adopt' && top) {
+      let suggestionOk = false;
+      try {
+        const build = new Function('page', `return page.${top.suggestedLocator};`) as (
+          p: typeof page,
+        ) => ReturnType<typeof page.locator>;
+        const locator = build(page);
+        if ((await locator.count()) === 1) {
+          suggestionOk = (await locator.getAttribute('data-truth')) === topTruth;
+        }
+      } catch {
+        suggestionOk = false;
+      }
+      if (!suggestionOk) {
+        suggestionFailures.push(`[${mutation.name}] ${key}: ${top.suggestedLocator}`);
+      } else {
+        suggestionSuccesses++;
+      }
+    }
 
     const wasRemoved = removed.has(key);
     const correct = wasRemoved ? decision !== 'adopt' : adoptedTruth === key;
@@ -170,6 +194,9 @@ console.log(`False heals  (G2 target <1%):     ${falseHeals.length}/${results.le
 console.log(`Removed targets refused:           ${removedRefused.length}/${removedCases.length}`);
 console.log(`IQR-OR gate experiment:            would adopt ${iqrAdopts.length} ambiguous cases, ${iqrRight.length} correctly (${iqrAdopts.length - iqrRight.length} false)`);
 console.log(`Scoring latency (G3 p50 <50ms):    p50 ${percentile(latencies, 50).toFixed(1)}ms  p95 ${percentile(latencies, 95).toFixed(1)}ms`);
+const suggestionTotal = suggestionSuccesses + suggestionFailures.length;
+console.log(`Suggested-locator uniqueness:      ${suggestionSuccesses}/${suggestionTotal} resolve uniquely to the adopted element`);
+for (const f of suggestionFailures.slice(0, 8)) console.log(`  ✗ SUGGESTION ${f}`);
 
 for (const f of falseHeals) {
   console.log(`  ✗ FALSE HEAL [${f.mutation}] ${f.truthKey} → ${f.adoptedTruth}`);

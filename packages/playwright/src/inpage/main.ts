@@ -298,16 +298,61 @@ function cssQuote(value: string): string {
   return value.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 }
 
-function suggestLocator(fp: ElementFingerprint): string {
-  if (fp.testId) return `getByTestId('${cssQuote(fp.testId)}')`;
-  if (fp.id) return `locator('#${cssQuote(fp.id)}')`;
-  // Masked text (§13) must never leak into suggested locators — and a
-  // locator built from the mask string would not resolve anyway.
-  if (fp.role && fp.accessibleName && fp.accessibleName !== MASKED) {
+/**
+ * Uniqueness census over the collected operable elements: a candidate
+ * locator form is only suggested when it resolves to exactly one element
+ * (design §6.5 — "the highest form that resolves uniquely").
+ */
+interface UniquenessCensus {
+  roleName: Map<string, number>;
+  testId: Map<string, number>;
+  text: Map<string, number>;
+  id: Map<string, number>;
+}
+
+function buildCensus(fps: readonly ElementFingerprint[]): UniquenessCensus {
+  const census: UniquenessCensus = {
+    roleName: new Map(),
+    testId: new Map(),
+    text: new Map(),
+    id: new Map(),
+  };
+  const bump = (map: Map<string, number>, key: string) => map.set(key, (map.get(key) ?? 0) + 1);
+  for (const fp of fps) {
+    if (fp.role && fp.accessibleName && fp.accessibleName !== MASKED) {
+      bump(census.roleName, `${fp.role} ${fp.accessibleName}`);
+    }
+    if (fp.testId) bump(census.testId, fp.testId);
+    if (fp.visibleText && fp.visibleText !== MASKED) bump(census.text, fp.visibleText);
+    if (fp.id) bump(census.id, fp.id);
+  }
+  return census;
+}
+
+/** Playwright-preferred locator, §6.5 order, first form that is unique. */
+function suggestLocator(fp: ElementFingerprint, census: UniquenessCensus): string {
+  if (
+    fp.role &&
+    fp.accessibleName &&
+    fp.accessibleName !== MASKED &&
+    census.roleName.get(`${fp.role} ${fp.accessibleName}`) === 1
+  ) {
     return `getByRole('${fp.role}', { name: '${cssQuote(fp.accessibleName)}' })`;
   }
-  if (fp.visibleText && fp.visibleText !== MASKED && fp.visibleText.length <= 32) {
-    return `getByText('${cssQuote(fp.visibleText)}')`;
+  if (fp.testId && census.testId.get(fp.testId) === 1) {
+    return `getByTestId('${cssQuote(fp.testId)}')`;
+  }
+  if (
+    fp.visibleText &&
+    fp.visibleText !== MASKED &&
+    fp.visibleText.length <= 32 &&
+    census.text.get(fp.visibleText) === 1
+  ) {
+    // exact: Playwright's getByText is substring-matching by default.
+    return `getByText('${cssQuote(fp.visibleText)}', { exact: true })`;
+  }
+  if (fp.id && census.id.get(fp.id) === 1) {
+    return `locator('#${cssQuote(fp.id)}')`;
   }
   return `locator('xpath=${fp.absoluteXPath}')`;
 }
@@ -394,6 +439,7 @@ export function collectAndScore(request: ScoreRequest): ScoreResponse {
   const ranked = rankCandidates(request.target, groups, (g) => g.props, RELOCATOR_PROPERTIES);
 
   const max = targetMaxScore(request.target);
+  const census = buildCensus(captured.map((c) => c.fp));
   adoptNonce++;
   const top = ranked.slice(0, request.topN).map((r, i) => {
     const tag = `h${adoptNonce}-${i}`;
@@ -406,7 +452,7 @@ export function collectAndScore(request: ScoreRequest): ScoreResponse {
       props: r.widget.props,
       xpath: rep.fp.absoluteXPath,
       adoptSelector: `[${ADOPT_ATTR}="${tag}"]`,
-      suggestedLocator: suggestLocator(rep.fp),
+      suggestedLocator: suggestLocator(rep.fp, census),
       summary: summarize(rep.el, rep.fp.visibleText === MASKED),
     };
   });
