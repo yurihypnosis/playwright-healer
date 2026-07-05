@@ -102,13 +102,31 @@ test.describe.serial('tier 3 disambiguation', () => {
     expect(healed[0]!.description).toContain('tier 3');
   });
 
+  test('repeat encounter uses the cached verdict — no provider call (§6.4)', async ({ page }) => {
+    calls.length = 0;
+    await page.setContent(APP_V2);
+
+    await page.locator('#add').click();
+    await expect(page.locator('#list li')).toHaveText(['note']);
+
+    expect(calls).toHaveLength(0); // verdict came from the cross-run cache
+    const healed = test.info().annotations.filter((a) => a.type === 'healed');
+    expect(healed).toHaveLength(1);
+    expect(healed[0]!.description).toContain('tier 3');
+  });
+
   test('low-confidence verdicts are refused — the failure surfaces', async ({ page }) => {
     calls.length = 0;
     nextConfidence = 0.3;
     await page.setContent(APP_V1);
     await page.locator('#add').click(); // re-record in this worker
 
-    await page.setContent(APP_V2);
+    // A third button changes the candidate structure → cache miss → fresh call.
+    const APP_V2_TRIPLET = APP_V2.replace(
+      '<button name="add-note"',
+      '<button name="add-temp" class="css-a1b2c3" onclick="void 0">Add</button><button name="add-note"',
+    );
+    await page.setContent(APP_V2_TRIPLET);
     await expect(page.locator('#add').click({ timeout: 1_000 })).rejects.toThrow();
     expect(calls.length).toBeGreaterThanOrEqual(1);
     expect(test.info().annotations.filter((a) => a.type === 'healed')).toHaveLength(0);
