@@ -32,6 +32,8 @@ export interface ScoredElement {
   score: number;
   normalizedScore: number;
   breakdown: Record<string, number>;
+  /** Full property bag — the Tier 3 disambiguation payload (design §6.4). */
+  props: WidgetProps;
   xpath: string;
   suggestedLocator: string;
   summary: string;
@@ -298,6 +300,7 @@ export function collectAndScore(request: ScoreRequest): ScoreResponse {
     score: r.score,
     normalizedScore: max > 0 ? r.score / max : 0,
     breakdown: r.breakdown,
+    props: fingerprintToWidgetProps(r.widget.fp),
     xpath: r.widget.fp.absoluteXPath,
     suggestedLocator: suggestLocator(r.widget.fp),
     summary: summarize(r.widget.el),

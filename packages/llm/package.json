@@ -1,0 +1,26 @@
+{
+  "name": "@relocator/llm",
+  "version": "0.0.1",
+  "description": "Tier 3 LLM disambiguation providers for Relocator (Anthropic / Ollama)",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.90.0",
+    "@relocator/core": "workspace:*"
+  }
+}

@@ -20,3 +20,10 @@ export type { FailureClass } from './classify/failure.js';
 
 export { RELOCATOR_PROPERTIES, fingerprintToWidgetProps } from './fingerprint/types.js';
 export type { Callsite, ElementFingerprint, ElementRect } from './fingerprint/types.js';
+
+export type {
+  DisambiguationCandidate,
+  DisambiguationInput,
+  DisambiguationResult,
+  LLMProvider,
+} from './llm/types.js';

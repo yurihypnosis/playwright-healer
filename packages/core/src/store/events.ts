@@ -27,6 +27,16 @@ export interface HealingEvent {
   resolvedTier: 0 | 1 | 2 | 3 | 'unresolved';
   outcome: 'healed' | 'rejected' | 'unresolved' | 'skipped-by-policy';
   candidates: HealingCandidateRecord[];
+  llm?: {
+    provider: string;
+    model: string;
+    latencyMs: number;
+    chosenCandidateIndex: number | null;
+    confidence: number;
+    reason: string;
+    inputTokens?: number | undefined;
+    outputTokens?: number | undefined;
+  } | undefined;
   adoptedLocator: string | null;
   totalLatencyMs: number;
   callsite: Callsite | null;
