@@ -1,15 +1,17 @@
 #!/usr/bin/env node
 /**
- * relocator-patch [--dir <.relocator>] [--write]
+ * relocator-patch [--dir <.relocator>] [--write] [--format diff|md]
  *
  * Aggregates healing events from the last runs and proposes locator patches
- * as a reviewable diff. Never writes without --write (design goal G7:
- * a human reviews every patch).
+ * as a reviewable diff (or a PR-comment markdown body with --format md,
+ * designed for `relocator-patch --format md | gh pr comment --body-file -`).
+ * Never writes without --write (design goal G7: a human reviews every patch).
  */
 
 import { relative } from 'node:path';
 import { aggregateEvents, readEvents } from './aggregate.js';
 import { applyProposals } from './codemod.js';
+import { renderMarkdown } from './markdown.js';
 
 function arg(name: string): string | undefined {
   const index = process.argv.indexOf(name);
@@ -18,6 +20,7 @@ function arg(name: string): string | undefined {
 
 const dir = arg('--dir') ?? '.relocator';
 const write = process.argv.includes('--write');
+const format = arg('--format') ?? 'diff';
 
 const events = readEvents(dir);
 if (events.length === 0) {
@@ -27,6 +30,11 @@ if (events.length === 0) {
 
 const { proposals, warnings: aggWarnings } = aggregateEvents(events);
 const { edits, warnings: modWarnings } = applyProposals(proposals, { write });
+
+if (format === 'md' || format === 'markdown') {
+  console.log(renderMarkdown(edits, [...aggWarnings, ...modWarnings]));
+  process.exit(0);
+}
 
 const cwd = process.cwd();
 for (const edit of edits) {
