@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - name: Unit tests
+        run: pnpm --filter @relocator/core --filter @relocator/reporter test
+      - name: Integration tests (record + heal)
+        run: |
+          pnpm --filter @relocator/spike-playwright-proxy exec playwright install --with-deps chromium
+          pnpm --filter @relocator/spike-playwright-proxy test
+          pnpm --filter @relocator/playwright test
+
+  benchmark:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @relocator/core build
+      - name: Fetch VON Similo replication dataset
+        run: ./benchmarks/fetch-data.sh
+      - name: Reproduce VON Similo benchmark (must match 734/804 exactly)
+        run: |
+          pnpm bench:similo | tee bench-output.txt
+          grep -q "correct:   734 (91.3%)" bench-output.txt || (echo "::error::Benchmark reproduction drifted from reference 734/804" && exit 1)
