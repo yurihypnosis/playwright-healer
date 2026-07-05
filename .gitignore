@@ -6,6 +6,7 @@ dist/
 benchmarks/data/
 .DS_Store
 .relocator-test/
+.relocator-llm-test/
 *.generated.ts
 test-results/
 playwright-report/
