@@ -35,6 +35,13 @@ export interface ScoredElement {
   /** Full property bag — the Tier 3 disambiguation payload (design §6.4). */
   props: WidgetProps;
   xpath: string;
+  /**
+   * Race-free, shadow-piercing adoption selector: the candidate element is
+   * tagged with a one-off data attribute at scoring time, so adoption can't
+   * be misdirected by DOM changes between scoring and retry, and works for
+   * elements inside open shadow roots (where XPath cannot reach).
+   */
+  adoptSelector: string;
   suggestedLocator: string;
   summary: string;
 }
@@ -281,10 +288,29 @@ function targetMaxScore(target: WidgetProps): number {
   return sum;
 }
 
+/** Collect operable elements from the document and all open shadow roots. */
+function collectOperableElements(selector: string, maxCandidates: number): Element[] {
+  const out: Element[] = [];
+  const visit = (root: Document | ShadowRoot): void => {
+    root.querySelectorAll(selector).forEach((el) => {
+      if (isElementVisible(el)) out.push(el);
+    });
+    root.querySelectorAll('*').forEach((el) => {
+      if (el.shadowRoot) visit(el.shadowRoot);
+    });
+  };
+  visit(document);
+  return out.slice(0, maxCandidates);
+}
+
+const ADOPT_ATTR = 'data-relocator-c';
+let adoptNonce = 0;
+
 export function collectAndScore(request: ScoreRequest): ScoreResponse {
-  const elements = [...document.querySelectorAll(candidateSelector(request.testIdAttribute))]
-    .filter(isElementVisible)
-    .slice(0, request.maxCandidates);
+  const elements = collectOperableElements(
+    candidateSelector(request.testIdAttribute),
+    request.maxCandidates,
+  );
 
   const options: CaptureOptions = { testIdAttribute: request.testIdAttribute };
   const captured = elements.map((el) => ({ el, fp: captureElement(el, options) }));
@@ -296,15 +322,21 @@ export function collectAndScore(request: ScoreRequest): ScoreResponse {
   );
 
   const max = targetMaxScore(request.target);
-  const top = ranked.slice(0, request.topN).map((r) => ({
-    score: r.score,
-    normalizedScore: max > 0 ? r.score / max : 0,
-    breakdown: r.breakdown,
-    props: fingerprintToWidgetProps(r.widget.fp),
-    xpath: r.widget.fp.absoluteXPath,
-    suggestedLocator: suggestLocator(r.widget.fp),
-    summary: summarize(r.widget.el),
-  }));
+  adoptNonce++;
+  const top = ranked.slice(0, request.topN).map((r, i) => {
+    const tag = `h${adoptNonce}-${i}`;
+    r.widget.el.setAttribute(ADOPT_ATTR, tag);
+    return {
+      score: r.score,
+      normalizedScore: max > 0 ? r.score / max : 0,
+      breakdown: r.breakdown,
+      props: fingerprintToWidgetProps(r.widget.fp),
+      xpath: r.widget.fp.absoluteXPath,
+      adoptSelector: `[${ADOPT_ATTR}="${tag}"]`,
+      suggestedLocator: suggestLocator(r.widget.fp),
+      summary: summarize(r.widget.el),
+    };
+  });
 
   return { candidates: top, candidateCount: captured.length, targetMaxScore: max };
 }

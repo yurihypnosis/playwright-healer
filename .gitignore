@@ -10,3 +10,4 @@ benchmarks/data/
 *.generated.ts
 test-results/
 playwright-report/
+.relocator-shadow-test/
