@@ -137,12 +137,23 @@ export const test = withRelocator(base, {
 
 ## Status
 
-Working today: record (Phase A), Tier 1+2+3 heal with full audit events,
-patch proposals (`relocator-patch` → diff, `--write` to apply), run
-reporter with GitHub Actions annotations, policy profiles, and both
-benchmarks (replication + mutation harness) gated in CI. Planned: VON
-merging, iframe/shadow-DOM traversal, PR-comment/auto-PR patch modes,
-HTML report drill-down, npm publish.
+Working today:
+
+- **Record + heal**: Phase A capture, Tier 1 in-page scoring (VON overlap
+  merging, open shadow roots, per-frame iframe spaces), Tier 2 gate with
+  dynamic-value auto-demotion, Tier 3 LLM with cross-run verdict cache
+- **Safety**: failure classification, refuse-on-removal, security masking
+  (§13), detect-only monitoring mode, timeout split
+- **Audit & reporting**: JSONL events with score breakdowns, run summary,
+  GitHub Actions annotations, recurring-heal quarantine detection,
+  self-contained HTML report (`['@relocator/reporter', { html: '...' }]`)
+- **Patching**: `relocator-patch` → reviewable diff, `--write` to apply,
+  `--format md` for `gh pr comment --body-file -`
+- **Quality gates in CI**: exact 734/804 replication + mutation-harness
+  false-heal/heal-rate floors
+
+Planned: auto-PR patch mode, SQLite store for large suites, locale-aware
+stores, docs site, npm publish.
 
 Positioning: complementary to Playwright's official dev-time Healer agent —
 Relocator is the runtime safety net (`ms`-scale, deterministic, no agent
