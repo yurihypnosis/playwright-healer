@@ -32,9 +32,22 @@ importers:
       '@playwright/test':
         specifier: ^1.53.0
         version: 1.61.1
+      '@relocator/reporter':
+        specifier: workspace:*
+        version: link:../reporter
       esbuild:
         specifier: ^0.28.1
         version: 0.28.1
+
+  packages/reporter:
+    dependencies:
+      '@relocator/core':
+        specifier: workspace:*
+        version: link:../core
+    devDependencies:
+      '@playwright/test':
+        specifier: ^1.53.0
+        version: 1.61.1
 
   spikes/playwright-proxy:
     devDependencies:

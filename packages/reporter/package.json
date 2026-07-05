@@ -1,7 +1,7 @@
 {
-  "name": "@relocator/core",
+  "name": "@relocator/reporter",
   "version": "0.0.1",
-  "description": "Deterministic multi-attribute element scoring engine (Similo-family) for self-healing selectors",
+  "description": "Playwright reporter surfacing self-healed selectors: run summary, tier stats, CI annotations",
   "license": "Apache-2.0",
   "type": "module",
   "exports": {
@@ -9,11 +9,6 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "default": "./dist/index.js"
-    },
-    "./store": {
-      "types": "./dist/store/index.d.ts",
-      "import": "./dist/store/index.js",
-      "default": "./dist/store/index.js"
     }
   },
   "files": [
@@ -23,5 +18,14 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run"
+  },
+  "dependencies": {
+    "@relocator/core": "workspace:*"
+  },
+  "peerDependencies": {
+    "@playwright/test": ">=1.45"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.53.0"
   }
 }
