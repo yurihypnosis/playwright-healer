@@ -77,3 +77,38 @@ describe('FingerprintStore', () => {
     expect(keys).toEqual(["locator('#a')", "locator('#z')"]);
   });
 });
+
+describe('dynamic-value demotion (§6.1)', () => {
+  it('marks attributes unstable when values differ across captures', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'relocator-store-'));
+    const store = new FingerprintStore(dir);
+    store.record(fp({ id: 'ember-1201', classList: ['css-a1b2'] }));
+    store.record(fp({ id: 'ember-8842', classList: ['css-z9y8'] }));
+
+    const got = store.get('https://app.example/*', "locator('#a')");
+    expect(got?.unstableProps).toEqual(['class', 'id']);
+    expect(got?.captureCount).toBe(2);
+
+    // Stable attributes stay trusted.
+    store.record(fp({ id: 'ember-3333', classList: ['css-q7w8'] }));
+    expect(store.get('https://app.example/*', "locator('#a')")?.unstableProps).toEqual([
+      'class',
+      'id',
+    ]);
+  });
+
+  it('instability persists through flush/merge and null values do not trigger it', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'relocator-store-'));
+    const a = new FingerprintStore(dir);
+    a.record(fp({ id: 'ember-1' }));
+    a.record(fp({ id: 'ember-2' }));
+    a.flush();
+
+    const b = new FingerprintStore(dir);
+    b.record(fp({ id: null })); // absent id must not add noise
+    b.flush();
+
+    const reloaded = new FingerprintStore(dir);
+    expect(reloaded.get('https://app.example/*', "locator('#a')")?.unstableProps).toEqual(['id']);
+  });
+});

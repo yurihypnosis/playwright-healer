@@ -57,6 +57,12 @@ export interface ElementFingerprint {
   capturedAt: string;
   runId: string;
   captureCount: number;
+  /**
+   * Properties whose value changed across captures of the same
+   * (pagePattern, locatorKey) — dynamic ids, hashed classes (§6.1).
+   * They are excluded from scoring: only stable attributes remain memory.
+   */
+  unstableProps?: string[];
   callsite: Callsite | null;
 }
 
@@ -76,7 +82,9 @@ export const RELOCATOR_PROPERTIES: readonly PropertySpec[] = [
 /** Project a fingerprint onto the WidgetProps bag the scoring engine consumes. */
 export function fingerprintToWidgetProps(fp: ElementFingerprint): WidgetProps {
   const props: WidgetProps = {};
+  const unstable = new Set(fp.unstableProps ?? []);
   const set = (key: string, value: string | null | undefined) => {
+    if (unstable.has(key)) return; // §6.1: demoted to weight 0 by omission
     if (value !== null && value !== undefined && value.length > 0) props[key] = value;
   };
   set('tag', fp.tag);

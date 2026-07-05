@@ -115,3 +115,27 @@ describe('SIMILO_PROPERTIES', () => {
     expect(SIMILO_PROPERTIES).toHaveLength(14);
   });
 });
+
+describe('unstable-prop demotion in projection', () => {
+  it('fingerprintToWidgetProps omits demoted properties from scoring', async () => {
+    const { fingerprintToWidgetProps } = await import('../fingerprint/types.js');
+    const fp = {
+      locatorKey: 'x', pagePattern: 'y',
+      role: 'button', accessibleName: 'Add', tag: 'button',
+      visibleText: 'Add', neighborText: [],
+      id: 'ember-999', name: null, classList: ['css-hash'], testId: null,
+      placeholder: null, href: null, alt: null, type: null,
+      absoluteXPath: '/html[1]/body[1]/button[1]', idRelativeXPath: null,
+      siblingIndex: 0, depth: 1,
+      rect: { x: 0, y: 0, w: 10, h: 10 }, isVisible: true,
+      capturedAt: '', runId: '', captureCount: 3,
+      unstableProps: ['id', 'class'],
+      callsite: null,
+    };
+    const props = fingerprintToWidgetProps(fp);
+    expect(props['id']).toBeUndefined();
+    expect(props['class']).toBeUndefined();
+    expect(props['tag']).toBe('button');
+    expect(props['accessible_name']).toBe('Add');
+  });
+});

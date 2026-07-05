@@ -77,10 +77,15 @@ and true element removal. Every verdict is checked against a
 |---|---|---|
 | False heals (wrong element adopted) | < 1% | **0.00%** (0/128) |
 | Truly-removed targets refused | all | **4/4** |
-| Tier 2 deterministic heal rate | — | 73.4% |
-| Ambiguous residue escalated to Tier 3 | ~30% (paper) | 28.1%, top-1 correct in 33/36 |
-| Full-cascade ceiling (Tier 2 + Tier 3) | ≥ 90% | **100%** |
-| In-page scoring latency | p50 < 50ms | **p50 3.2ms / p95 4.1ms** |
+| Tier 2 deterministic heal rate | — | 71.0% |
+| Ambiguous residue escalated to Tier 3 | ~30% (paper) | ~28%, top-1 nearly always correct |
+| Full-cascade ceiling (Tier 2 + Tier 3) | ≥ 90% | **99.2%** |
+| In-page scoring latency | p50 < 50ms | **p50 ~3ms / p95 ~6ms** |
+
+(The page includes a password form; security masking (§13) deliberately
+strips text context near sensitive inputs, which costs a few points of
+deterministic heal rate there — refusing to remember sensitive text is
+the intended trade.)
 
 These quality gates run in CI: a false-heal rate ≥ 2%, a deterministic
 rate < 70%, or a cascade ceiling < 90% fails the build.
