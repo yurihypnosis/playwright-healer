@@ -11,3 +11,4 @@ benchmarks/data/
 test-results/
 playwright-report/
 .relocator-shadow-test/
+.relocator-mask-test/

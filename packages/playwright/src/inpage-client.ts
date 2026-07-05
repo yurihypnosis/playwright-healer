@@ -10,7 +10,10 @@ import type { ScoreRequest, ScoreResponse } from './inpage/main.js';
 
 type InpageGlobal = typeof globalThis & {
   __relocatorInpage?: {
-    captureElement: (el: Element, opts: { testIdAttribute: string }) => ElementFingerprint;
+    captureElement: (
+      el: Element,
+      opts: { testIdAttribute: string; redact?: string[] | undefined },
+    ) => ElementFingerprint;
     collectAndScore: (req: ScoreRequest) => ScoreResponse;
   };
 };
@@ -25,11 +28,12 @@ export async function captureFingerprint(
   page: Page,
   handle: ElementHandle,
   testIdAttribute: string,
+  redact?: string[],
 ): Promise<ElementFingerprint> {
   await ensureInstalled(page);
   return handle.evaluate(
-    (el, attr) => (globalThis as InpageGlobal).__relocatorInpage!.captureElement(el as Element, { testIdAttribute: attr }),
-    testIdAttribute,
+    (el, opts) => (globalThis as InpageGlobal).__relocatorInpage!.captureElement(el as Element, opts),
+    { testIdAttribute, redact },
   );
 }
 

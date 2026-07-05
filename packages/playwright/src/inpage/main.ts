@@ -20,6 +20,40 @@ import {
 
 export interface CaptureOptions {
   testIdAttribute: string;
+  /** Extra CSS selectors whose elements' textual properties are masked (§13). */
+  redact?: string[] | undefined;
+}
+
+export const MASKED = '■■■';
+
+/** Sensitive autocomplete tokens (credit card, one-time codes) per §13. */
+const SENSITIVE_AUTOCOMPLETE = /^(cc-|one-time-code)/;
+
+function isSensitiveElement(el: Element): boolean {
+  if (el.tagName.toLowerCase() === 'input') {
+    const type = (el.getAttribute('type') ?? '').toLowerCase();
+    if (type === 'password') return true;
+    const autocomplete = (el.getAttribute('autocomplete') ?? '').toLowerCase();
+    if (SENSITIVE_AUTOCOMPLETE.test(autocomplete)) return true;
+  }
+  return false;
+}
+
+/** True when the element is, contains, or sits next to a sensitive input. */
+function isNearSensitive(el: Element, redact: string[] | undefined): boolean {
+  if (redact) {
+    for (const selector of redact) {
+      try {
+        if (el.matches(selector) || el.closest(selector)) return true;
+      } catch {
+        // Invalid selector in config — never break capture over it.
+      }
+    }
+  }
+  if (isSensitiveElement(el)) return true;
+  const parent = el.parentElement;
+  if (!parent) return false;
+  return [...parent.children].some((sibling) => isSensitiveElement(sibling));
 }
 
 export interface ScoreRequest {
@@ -27,6 +61,7 @@ export interface ScoreRequest {
   testIdAttribute: string;
   topN: number;
   maxCandidates: number;
+  redact?: string[] | undefined;
 }
 
 export interface ScoredElement {
@@ -209,12 +244,17 @@ function neighborTexts(el: Element): string[] {
   return truncate(text, 128).split(' ').filter((w) => w.length > 0);
 }
 
-/** Capture the page-side fields of a fingerprint; meta fields are filled by Node. */
+/**
+ * Capture the page-side fields of a fingerprint; meta fields are filled by
+ * Node. The `value` attribute/property is NEVER captured (§13); textual
+ * properties of password/cc-adjacent or redact-listed elements are masked.
+ */
 export function captureElement(el: Element, options: CaptureOptions): ElementFingerprint {
   const role = computeRole(el);
   const rect = el.getBoundingClientRect();
+  const masked = isNearSensitive(el, options.redact);
   const attr = (name: string): string | null => el.getAttribute(name);
-  const visibleText = normalizeWs(el.textContent ?? '');
+  const visibleText = masked ? MASKED : normalizeWs(el.textContent ?? '');
   let siblingIndex = 0;
   let sib = el.previousElementSibling;
   while (sib) {
@@ -228,15 +268,15 @@ export function captureElement(el: Element, options: CaptureOptions): ElementFin
     locatorKey: '',
     pagePattern: '',
     role,
-    accessibleName: accessibleName(el, role),
+    accessibleName: masked ? MASKED : accessibleName(el, role),
     tag: el.tagName.toLowerCase(),
     visibleText: visibleText ? truncate(visibleText, 64) : null,
-    neighborText: neighborTexts(el),
+    neighborText: masked ? [MASKED] : neighborTexts(el),
     id: el.id || null,
     name: attr('name'),
     classList: [...el.classList],
     testId: attr(options.testIdAttribute),
-    placeholder: attr('placeholder'),
+    placeholder: masked ? MASKED : attr('placeholder'),
     href: attr('href'),
     alt: attr('alt'),
     type: attr('type'),
@@ -260,19 +300,21 @@ function cssQuote(value: string): string {
 function suggestLocator(fp: ElementFingerprint): string {
   if (fp.testId) return `getByTestId('${cssQuote(fp.testId)}')`;
   if (fp.id) return `locator('#${cssQuote(fp.id)}')`;
-  if (fp.role && fp.accessibleName) {
+  // Masked text (§13) must never leak into suggested locators — and a
+  // locator built from the mask string would not resolve anyway.
+  if (fp.role && fp.accessibleName && fp.accessibleName !== MASKED) {
     return `getByRole('${fp.role}', { name: '${cssQuote(fp.accessibleName)}' })`;
   }
-  if (fp.visibleText && fp.visibleText.length <= 32) {
+  if (fp.visibleText && fp.visibleText !== MASKED && fp.visibleText.length <= 32) {
     return `getByText('${cssQuote(fp.visibleText)}')`;
   }
   return `locator('xpath=${fp.absoluteXPath}')`;
 }
 
-function summarize(el: Element): string {
+function summarize(el: Element, masked: boolean): string {
   const clone = el.cloneNode(false) as Element;
   const open = clone.outerHTML.replace(/<\/[^>]+>$/, '');
-  const text = normalizeWs(el.textContent ?? '');
+  const text = masked ? MASKED : normalizeWs(el.textContent ?? '');
   return truncate(`${open}${text ? truncate(text, 40) : ''}`, 160);
 }
 
@@ -331,7 +373,10 @@ export function collectAndScore(request: ScoreRequest): ScoreResponse {
     request.maxCandidates,
   );
 
-  const options: CaptureOptions = { testIdAttribute: request.testIdAttribute };
+  const options: CaptureOptions = {
+    testIdAttribute: request.testIdAttribute,
+    redact: request.redact,
+  };
   const captured = elements.map((el) => ({ el, fp: captureElement(el, options) }));
 
   // VON merge (§6.2): visually overlapping nodes become one virtual
@@ -361,7 +406,7 @@ export function collectAndScore(request: ScoreRequest): ScoreResponse {
       xpath: rep.fp.absoluteXPath,
       adoptSelector: `[${ADOPT_ATTR}="${tag}"]`,
       suggestedLocator: suggestLocator(rep.fp),
-      summary: summarize(rep.el),
+      summary: summarize(rep.el, rep.fp.visibleText === MASKED),
     };
   });
 
