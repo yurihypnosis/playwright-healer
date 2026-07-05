@@ -59,6 +59,62 @@ export function formatSummary(summary: HealSummary, cwd: string = process.cwd())
   return lines.join('\n');
 }
 
+export interface RecurringHeal {
+  originalLocator: string;
+  runCount: number;
+  lastAdopted: string | null;
+  callsite: HealingEvent['callsite'];
+}
+
+/**
+ * Recurring-heal detection (design §11.2): the same locator healing across
+ * several distinct runs means the patch was never applied — or the element
+ * is unstable and needs a human look (quarantine recommendation).
+ */
+export function findRecurringHeals(
+  allEvents: readonly HealingEvent[],
+  minRuns = 3,
+): RecurringHeal[] {
+  const groups = new Map<string, { runs: Set<string>; last: HealingEvent }>();
+  for (const event of allEvents) {
+    if (event.outcome !== 'healed') continue;
+    const site = event.callsite ? `${event.callsite.file}:${event.callsite.line}` : '';
+    const key = `${site} ${event.originalLocator}`;
+    const group = groups.get(key);
+    if (group) {
+      group.runs.add(event.runId);
+      if (event.timestamp >= group.last.timestamp) group.last = event;
+    } else {
+      groups.set(key, { runs: new Set([event.runId]), last: event });
+    }
+  }
+  return [...groups.values()]
+    .filter((g) => g.runs.size >= minRuns)
+    .map((g) => ({
+      originalLocator: g.last.originalLocator,
+      runCount: g.runs.size,
+      lastAdopted: g.last.adoptedLocator,
+      callsite: g.last.callsite,
+    }))
+    .sort((a, b) => b.runCount - a.runCount);
+}
+
+export function formatRecurringHeals(
+  recurring: readonly RecurringHeal[],
+  cwd: string = process.cwd(),
+): string {
+  if (recurring.length === 0) return '';
+  const lines = ['Recurring heals (quarantine recommended — apply the patch or review the element):'];
+  for (const r of recurring) {
+    const site = r.callsite
+      ? ` [${relative(cwd, r.callsite.file.replace(/^file:\/\//, ''))}:${r.callsite.line}]`
+      : '';
+    lines.push(`  ⟳ ${r.originalLocator} healed in ${r.runCount} runs → ${r.lastAdopted}${site}`);
+    lines.push('    run `relocator-patch --write` or quarantine the test');
+  }
+  return lines.join('\n');
+}
+
 /** `::warning` lines that land on the exact file/line in a GitHub PR. */
 export function formatGithubAnnotations(
   summary: HealSummary,

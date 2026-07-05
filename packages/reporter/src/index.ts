@@ -11,10 +11,22 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Reporter } from '@playwright/test/reporter';
 import type { HealingEvent } from '@relocator/core/store';
-import { formatGithubAnnotations, formatSummary, summarize } from './summary.js';
+import {
+  findRecurringHeals,
+  formatGithubAnnotations,
+  formatRecurringHeals,
+  formatSummary,
+  summarize,
+} from './summary.js';
 
-export { formatGithubAnnotations, formatSummary, summarize } from './summary.js';
-export type { HealSummary } from './summary.js';
+export {
+  findRecurringHeals,
+  formatGithubAnnotations,
+  formatRecurringHeals,
+  formatSummary,
+  summarize,
+} from './summary.js';
+export type { HealSummary, RecurringHeal } from './summary.js';
 
 export interface RelocatorReporterOptions {
   /** Relocator store directory (same as the fixture's `dir`). Default '.relocator'. */
@@ -33,14 +45,15 @@ export default class RelocatorReporter implements Reporter {
     this.startTime = Date.now();
   }
 
-  private readRunEvents(): HealingEvent[] {
+  private readEvents(sinceMs: number | null): HealingEvent[] {
     if (!existsSync(this.eventsDir)) return [];
     const events: HealingEvent[] = [];
     for (const name of readdirSync(this.eventsDir)) {
       if (!name.endsWith('.jsonl')) continue;
       const path = join(this.eventsDir, name);
-      // Only files touched by this run; older runs stay archived on disk.
-      if (statSync(path).mtimeMs < this.startTime - 1_000) continue;
+      // For the run summary, only files touched by this run; the full
+      // history feeds recurring-heal detection.
+      if (sinceMs !== null && statSync(path).mtimeMs < sinceMs) continue;
       for (const line of readFileSync(path, 'utf8').split('\n')) {
         if (!line.trim()) continue;
         try {
@@ -54,10 +67,12 @@ export default class RelocatorReporter implements Reporter {
   }
 
   onEnd(): void {
-    const events = this.readRunEvents();
+    const events = this.readEvents(this.startTime - 1_000);
     if (events.length === 0) return;
     const summary = summarize(events);
     console.log(`\n${formatSummary(summary)}`);
+    const recurring = findRecurringHeals(this.readEvents(null));
+    if (recurring.length > 0) console.log(formatRecurringHeals(recurring));
     if (process.env['GITHUB_ACTIONS']) {
       for (const line of formatGithubAnnotations(summary)) console.log(line);
     }

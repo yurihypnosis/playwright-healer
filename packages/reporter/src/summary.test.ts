@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import type { HealingEvent } from '@relocator/core/store';
-import { formatGithubAnnotations, formatSummary, summarize } from './summary.js';
+import {
+  findRecurringHeals,
+  formatGithubAnnotations,
+  formatRecurringHeals,
+  formatSummary,
+  summarize,
+} from './summary.js';
 
 function event(overrides: Partial<HealingEvent>): HealingEvent {
   return {
@@ -59,5 +65,38 @@ describe('formatGithubAnnotations', () => {
       "::warning file=tests/heal.spec.ts,line=83,col=16,title=Relocator::Selector healed at runtime: getByTestId('add-btn') → getByRole('button', { name: 'Add' }). Update the locator.",
     );
     expect(lines[1]).toContain('could not be healed');
+  });
+});
+
+describe('findRecurringHeals', () => {
+  it('flags locators healed across >= minRuns distinct runs, newest adoption wins', () => {
+    const events = [
+      event({ runId: 'r1', timestamp: '2026-07-01T00:00:00Z' }),
+      event({ runId: 'r2', timestamp: '2026-07-02T00:00:00Z' }),
+      event({
+        runId: 'r3',
+        timestamp: '2026-07-03T00:00:00Z',
+        adoptedLocator: "locator('#latest')",
+      }),
+      // Different locator healed in only one run — not recurring.
+      event({ runId: 'r3', originalLocator: "locator('#other')" }),
+      // Rejected events never count.
+      event({ runId: 'r4', outcome: 'rejected', adoptedLocator: null }),
+    ];
+    const recurring = findRecurringHeals(events, 3);
+    expect(recurring).toHaveLength(1);
+    expect(recurring[0]!.runCount).toBe(3);
+    expect(recurring[0]!.lastAdopted).toBe("locator('#latest')");
+
+    const text = formatRecurringHeals(recurring, '/repo');
+    expect(text).toContain('healed in 3 runs');
+    expect(text).toContain('quarantine');
+    expect(text).toContain('[tests/heal.spec.ts:83]');
+  });
+
+  it('stays silent below the threshold', () => {
+    const recurring = findRecurringHeals([event({ runId: 'r1' }), event({ runId: 'r2' })], 3);
+    expect(recurring).toHaveLength(0);
+    expect(formatRecurringHeals(recurring)).toBe('');
   });
 });
