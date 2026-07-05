@@ -7,6 +7,13 @@
 import type { PropertySpec, WidgetProps } from '../scoring/similo.js';
 import { SIMILO_PROPERTIES } from '../scoring/similo.js';
 
+/**
+ * Mask sentinel for sensitive textual properties (§13). Masked values are
+ * stored (documenting that text existed) but MUST NOT contribute to
+ * similarity: two masked elements would otherwise look alike.
+ */
+export const MASKED = '■■■';
+
 export interface ElementRect {
   x: number;
   y: number;
@@ -85,7 +92,10 @@ export function fingerprintToWidgetProps(fp: ElementFingerprint): WidgetProps {
   const unstable = new Set(fp.unstableProps ?? []);
   const set = (key: string, value: string | null | undefined) => {
     if (unstable.has(key)) return; // §6.1: demoted to weight 0 by omission
-    if (value !== null && value !== undefined && value.length > 0) props[key] = value;
+    if (value === null || value === undefined || value.length === 0) return;
+    // §13: masked text must never match other masked text.
+    if (value === MASKED || value.includes(MASKED)) return;
+    props[key] = value;
   };
   set('tag', fp.tag);
   set('class', fp.classList.join(' '));

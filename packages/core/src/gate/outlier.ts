@@ -47,6 +47,33 @@ export function evaluateGate(scores: readonly number[]): GateResult {
   return { threshold, outlierCount, unique: outlierCount === 1 };
 }
 
+export type GatePreset = 'aggressive' | 'standard' | 'conservative';
+
+/**
+ * Presets calibrated on two instruments: the 804-oracle replication
+ * dataset sweep (benchmarks/src/sweep-gate.ts) and the ground-truth
+ * mutation harness (benchmarks/src/run-mutations.ts).
+ *
+ * θ_abs stays at 0.55 for conservative AND standard: it is the safety
+ * valve that refuses to heal genuinely removed elements. Lowering it
+ * (aggressive) buys nothing here and lets a removed element's neighbor
+ * be adopted — the worst false-heal mode. Harness measurements:
+ *
+ * | preset       | Tier 2 heals | false heals | removals refused |
+ * |--------------|--------------|-------------|------------------|
+ * | conservative | 73.4%        | 0.00%       | 4/4              |
+ * | standard     | 100.0%       | 0.00%       | 4/4              |
+ * | aggressive   | 100.0%       | 0.78%       | 3/4              |
+ *
+ * 'standard' is the engine default. 'conservative' trades coverage for a
+ * wider separation margin (CI-paranoid); 'aggressive' is rarely justified.
+ */
+export const GATE_PRESETS: Record<GatePreset, ThresholdGateConfig> = {
+  conservative: { abs: 0.55, gap: 0.1, ratio: 1.25 },
+  standard: { abs: 0.55, gap: 0.05, ratio: 1.05 },
+  aggressive: { abs: 0.45, gap: 0.02, ratio: 1.05 },
+};
+
 /** Tier 2 threshold gate (design §6.3) — shared by the runtime engine and benchmarks. */
 export interface ThresholdGateConfig {
   /** Minimum normalized top score (fraction of the target's max). */

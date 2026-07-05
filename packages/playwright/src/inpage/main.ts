@@ -9,6 +9,7 @@
  */
 
 import {
+  MASKED,
   RELOCATOR_PROPERTIES,
   calcSimilarityScore,
   fingerprintToWidgetProps,
@@ -24,7 +25,7 @@ export interface CaptureOptions {
   redact?: string[] | undefined;
 }
 
-export const MASKED = '■■■';
+export { MASKED };
 
 /** Sensitive autocomplete tokens (credit card, one-time codes) per §13. */
 const SENSITIVE_AUTOCOMPLETE = /^(cc-|one-time-code)/;

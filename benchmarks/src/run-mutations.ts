@@ -11,18 +11,22 @@
 
 import { chromium } from 'playwright';
 import {
+  GATE_PRESETS,
   evaluateGate,
   fingerprintToWidgetProps,
   thresholdGate,
   type ElementFingerprint,
+  type GatePreset,
   type ThresholdGateConfig,
 } from '@relocator/core';
 import { captureFingerprint, collectAndScore } from '@relocator/playwright';
 import { BASE_APP } from './mutation-app.ts';
 import { MUTATIONS } from './mutations.ts';
 
-const THRESHOLDS: ThresholdGateConfig = { abs: 0.55, gap: 0.1, ratio: 1.25 };
+const PRESET = (process.env['RELOCATOR_BENCH_PRESET'] ?? 'standard') as GatePreset;
+const THRESHOLDS: ThresholdGateConfig = GATE_PRESETS[PRESET];
 const TEST_ID_ATTRIBUTE = 'data-testid';
+console.log(`gate preset: ${PRESET} (abs ${THRESHOLDS.abs}, gap ${THRESHOLDS.gap}, ratio ${THRESHOLDS.ratio})`);
 
 interface CaseResult {
   mutation: string;
@@ -178,8 +182,8 @@ if (falseRate >= 0.02) {
   console.error(`\nFAIL: false-heal rate ${(falseRate * 100).toFixed(2)}% exceeds 2% ceiling`);
   process.exit(1);
 }
-if (tier2Rate < 0.7) {
-  console.error(`\nFAIL: Tier 2 heal rate ${(tier2Rate * 100).toFixed(1)}% below 70% floor`);
+if (tier2Rate < 0.85) {
+  console.error(`\nFAIL: Tier 2 heal rate ${(tier2Rate * 100).toFixed(1)}% below 85% floor (standard preset)`);
   process.exit(1);
 }
 if (ceiling < 0.9) {

@@ -73,19 +73,20 @@ hashing, wrapper divs, sibling reordering, text rewording, all combined,
 and true element removal. Every verdict is checked against a
 `data-truth` key the engine cannot see:
 
-| Metric | Goal | Measured |
+| Metric (standard preset) | Goal | Measured |
 |---|---|---|
 | False heals (wrong element adopted) | < 1% | **0.00%** (0/128) |
 | Truly-removed targets refused | all | **4/4** |
-| Tier 2 deterministic heal rate | — | 71.0% |
-| Ambiguous residue escalated to Tier 3 | ~30% (paper) | ~28%, top-1 nearly always correct |
-| Full-cascade ceiling (Tier 2 + Tier 3) | ≥ 90% | **99.2%** |
+| Tier 2 deterministic heal rate | ≥ 90% | **100%** (124/124) |
 | In-page scoring latency | p50 < 50ms | **p50 ~3ms / p95 ~6ms** |
 
-(The page includes a password form; security masking (§13) deliberately
-strips text context near sensitive inputs, which costs a few points of
-deterministic heal rate there — refusing to remember sensitive text is
-the intended trade.)
+Gate presets (calibrated on both instruments; `preset` option):
+
+| preset | Tier 2 heals | false heals | removals refused |
+|---|---|---|---|
+| `conservative` | 73.4% | 0.00% | 4/4 |
+| `standard` (default) | **100%** | **0.00%** | **4/4** |
+| `aggressive` | 100% | 0.78% | 3/4 — lowers the removal safety valve; rarely justified |
 
 These quality gates run in CI: a false-heal rate ≥ 2%, a deterministic
 rate < 70%, or a cascade ceiling < 90% fails the build.
