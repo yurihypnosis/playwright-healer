@@ -1,5 +1,7 @@
 # Relocator
 
+[![CI](https://github.com/yurihypnosis/playwright-healer/actions/workflows/ci.yml/badge.svg)](https://github.com/yurihypnosis/playwright-healer/actions/workflows/ci.yml)
+
 **Self-healing selectors for Playwright — deterministic first, LLM last.**
 
 When a locator breaks because the UI changed, Relocator re-locates the

@@ -38,5 +38,12 @@
   "publishConfig": {
     "access": "public"
   },
-  "sideEffects": false
+  "sideEffects": false,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yurihypnosis/playwright-healer.git",
+    "directory": "packages/llm"
+  },
+  "bugs": "https://github.com/yurihypnosis/playwright-healer/issues",
+  "homepage": "https://github.com/yurihypnosis/playwright-healer#readme"
 }
