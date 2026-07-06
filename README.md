@@ -2,15 +2,17 @@
 
 [![CI](https://github.com/yurihypnosis/playwright-healer/actions/workflows/ci.yml/badge.svg)](https://github.com/yurihypnosis/playwright-healer/actions/workflows/ci.yml)
 
-**Self-healing selectors for Playwright — deterministic first, LLM last.**
+**Self-healing selectors for Playwright.**
 
-When a locator breaks because the UI changed, Relocator re-locates the
-semantically-same element at runtime in milliseconds, lets the test continue
-(marked `healed`, never silently), and proposes the locator fix for human
-review after the run.
+A UI refactor renames an id, and a dozen tests go red — the app still works,
+only the selectors rotted. Relocator finds the same element again at runtime
+(~10ms), keeps the test running, and hands you the one-line fix to review.
+Real bugs still fail. Only selector rot gets healed.
+
+## Setup
 
 ```ts
-// fixtures.ts — the entire integration
+// fixtures.ts — this is the entire integration
 import { test as base } from '@playwright/test';
 import { withRelocator } from '@relocator/playwright';
 
@@ -18,158 +20,80 @@ export const test = withRelocator(base);
 export { expect } from '@playwright/test';
 ```
 
-Existing test code is untouched: `page.getByRole()`, `page.locator()`, chains,
-web-first assertions — everything keeps working. No Docker, no database, no
-API key required.
+Your test code stays untouched — `page.getByRole()`, `page.locator()`,
+chains, assertions all work as-is. No Docker, no database, no API key.
 
 ## How it works
 
-```
-green run                 failure                    after the run
-─────────────             ──────────────────────     ─────────────────
-Phase A: RECORD           Phase B: HEAL               Phase C: PATCH (planned)
-capture multi-attribute   classify the failure        aggregate healing events
-fingerprints of elements  (assertion failures are     -> codemod -> diff / PR
-on every green action     NEVER healed)               for human review
-(sampled, fire-and-       -> score all candidates
-forget, git-committable   in-page with 18 weighted
-JSON store)               properties (Similo-family)
-                          -> statistical outlier gate
-                          -> adopt & retry, or refuse
-```
+1. **Remember.** While tests are green, it fingerprints every element you
+   interact with — role, text, attributes, structure, position — into a
+   git-committable JSON file.
+2. **Heal.** When a locator fails, it scores every element on the page
+   against the fingerprint (the [Similo](https://arxiv.org/abs/2208.00677)
+   algorithm, TOSEM 2023; runs in-page in ~3ms) and adopts the winner only
+   when it is a statistically clear match. No clear match → the test fails
+   normally: a removed feature must stay red.
+3. **Fix.** After the run, `relocator-patch` turns the heals into a
+   reviewable diff (`--write` to apply, `--format md` for a PR comment).
 
-- **Tier 1 — deterministic scoring.** A faithful TypeScript port of the
-  [Similo / VON Similo](https://arxiv.org/abs/2208.00677) multi-attribute
-  similarity algorithm (TOSEM 2023), extended with first-class ARIA
-  properties (`role`, accessible name) and neighbor-text triangulation.
-  Runs inside the page in a single round-trip; observed heal latency ~13ms.
-- **Tier 2 — outlier gate.** The top candidate is adopted only when it is
-  statistically unambiguous (absolute score, gap, and ratio thresholds).
-  If nothing similar exists, Relocator **refuses to heal** — a deleted
-  feature must fail its test.
-- **Tier 3 — LLM disambiguation (optional).** Only the ambiguous residue
-  (~30% in benchmarks) is sent — top-10 candidate property JSON, no
-  screenshots, no DOM dumps — to a provider of your choice (Anthropic, or
-  Ollama for fully-local). One call per heal, strict JSON verdict,
-  `chosen: null` allowed, per-run call cap, confidence threshold. Without a
-  provider, ambiguous cases simply fail — Tiers 1–2 need no API key.
+Ambiguous ties can optionally go to an LLM (Anthropic, or Ollama fully
+local) — one small JSON call with the top candidates, no screenshots, no
+DOM dumps, cached across runs. Without a provider, ambiguous cases just
+fail; the deterministic tiers need no API key.
 
-## Benchmark honesty
+## Measured, not promised
 
-**1. Algorithm reproduction.** Our Tier 1 engine reproduces the published
-VON Similo results **exactly** on the authors'
-[replication dataset](https://github.com/michelnass/SimiloLLM)
-(48 real-world sites, 804 relocation oracles):
+| Claim | Evidence |
+|---|---|
+| The algorithm matches the published research | Reproduces the authors' [dataset](https://github.com/michelnass/SimiloLLM) result **exactly**: 734/804, case for case |
+| It heals the right element | **0.00% wrong-element heals** across 8 kinds of selector rot, verified against ground-truth markers the engine can't see |
+| It refuses when the element is gone | **4/4** deleted targets refused |
+| It heals almost everything else | **100%** heal rate on the same harness (id renames, testid removal, class hashing, wrapper divs, reordering, text edits, all combined) |
+| It's fast | p50 **3ms** in-page scoring; ~10ms end-to-end heal |
 
-| Metric | Reference (Java) | Relocator (TS port) |
-|---|---|---|
-| Correct top-1 | 734 / 804 (91.3%) | **734 / 804 (91.3%)** |
-
-CI fails if the reproduction ever drifts by a single case
-(`pnpm bench:similo`).
-
-**2. Mutation harness with ground truth** (`pnpm bench:mutations`): a
-realistic page (16 targets incl. near-identical sibling buttons) under 8
-scripted rot mutations — id renames, testid removal, CSS-in-JS class
-hashing, wrapper divs, sibling reordering, text rewording, all combined,
-and true element removal. Every verdict is checked against a
-`data-truth` key the engine cannot see:
-
-| Metric (standard preset) | Goal | Measured |
-|---|---|---|
-| False heals (wrong element adopted) | < 1% | **0.00%** (0/128) |
-| Truly-removed targets refused | all | **4/4** |
-| Tier 2 deterministic heal rate | ≥ 90% | **100%** (124/124) |
-| In-page scoring latency | p50 < 50ms | **p50 ~3ms / p95 ~6ms** |
-
-Gate presets (calibrated on both instruments; `preset` option):
-
-| preset | Tier 2 heals | false heals | removals refused |
-|---|---|---|---|
-| `conservative` | 73.4% | 0.00% | 4/4 |
-| `standard` (default) | **100%** | **0.00%** | **4/4** |
-| `aggressive` | 100% | 0.78% | 3/4 — lowers the removal safety valve; rarely justified |
-
-These quality gates run in CI: a false-heal rate ≥ 2%, a deterministic
-rate < 70%, or a cascade ceiling < 90% fails the build.
+Both benchmarks run in CI and fail the build on any regression
+(`pnpm bench:similo`, `pnpm bench:mutations`).
 
 ## What never gets healed
 
-Healing hides failures if applied carelessly, so classification comes first:
+Assertion failures, disabled/hidden elements, network errors, crashes —
+anything that is not selector rot. When in doubt, it doesn't heal.
+Passwords and credit-card context are never captured or sent anywhere.
 
-| Failure | Healed? |
-|---|---|
-| Selector not found (timeout) | ✅ candidate |
-| Strict-mode violation (ambiguous selector) | ✅ candidate |
-| `expect()` assertion failure | ❌ never — the test did its job |
-| Element exists but disabled/hidden | ❌ possible app bug |
-| Network / navigation / crashed browser | ❌ |
-| Anything unclassifiable | ❌ when in doubt, don't heal |
+Nothing is silent: every heal writes an audit event (score breakdown,
+candidates, callsite) and shows up in the run summary, GitHub Actions
+annotations on the exact test line, and an optional HTML report.
 
-Every heal is audited: JSONL events with per-property score breakdowns,
-candidate lists, callsites, and latency — plus a run summary and GitHub
-Actions warnings on the exact test-file lines that need updating.
-
-## Repository layout
-
-| Package | Purpose |
-|---|---|
-| `packages/core` | Scoring engine, outlier gate, failure classifier, stores. Pure TS, browser-safe scoring — the same code runs in benchmarks and inside the page. |
-| `packages/playwright` | `withRelocator` fixture, page/locator proxy, in-page bundle, healing cascade, policy profiles. |
-| `packages/llm` | Tier 3 providers: Anthropic (structured outputs) and Ollama (local). |
-| `packages/patch` | `relocator-patch` CLI: healing events → reviewable locator diffs (ts-morph). |
-| `packages/reporter` | Run summary + CI annotations. |
-| `benchmarks` | VON Similo replication harness. |
-| `spikes/playwright-proxy` | Proxy-integration validation suite (8 go/no-go checks). |
-
-## Environment profiles
-
-Behavior per environment is declared once and switched with
-`RELOCATOR_PROFILE`:
+## Tuning (optional)
 
 ```ts
 export const test = withRelocator(base, {
-  llm: { provider: new AnthropicProvider() },
-  profiles: {
-    ci: { maxTier: 2, record: false },          // deterministic only, don't touch baselines
-    nightly: { record: true },                   // refresh baselines on green main
-    monitoring: { maxTier: 0 },                  // detect, never heal
+  preset: 'conservative',                      // default 'standard'
+  llm: { provider: new AnthropicProvider() },  // enable Tier 3
+  redact: ['.user-secret'],                    // extra masking selectors
+  profiles: {                                  // switch with RELOCATOR_PROFILE
+    ci: { maxTier: 2, record: false },         //   deterministic only
+    monitoring: { detectOnly: true },          //   report, never touch
   },
 });
 ```
 
-## Status
+## Packages
 
-Working today:
-
-- **Record + heal**: Phase A capture, Tier 1 in-page scoring (VON overlap
-  merging, open shadow roots, per-frame iframe spaces), Tier 2 gate with
-  dynamic-value auto-demotion, Tier 3 LLM with cross-run verdict cache
-- **Safety**: failure classification, refuse-on-removal, security masking
-  (§13), detect-only monitoring mode, timeout split
-- **Audit & reporting**: JSONL events with score breakdowns, run summary,
-  GitHub Actions annotations, recurring-heal quarantine detection,
-  self-contained HTML report (`['@relocator/reporter', { html: '...' }]`)
-- **Patching**: `relocator-patch` → reviewable diff, `--write` to apply,
-  `--format md` for `gh pr comment --body-file -`
-- **Quality gates in CI**: exact 734/804 replication + mutation-harness
-  false-heal/heal-rate floors
-
-Planned: auto-PR patch mode, SQLite store for large suites, locale-aware
-stores, docs site, npm publish.
-
-Positioning: complementary to Playwright's official dev-time Healer agent —
-Relocator is the runtime safety net (`ms`-scale, deterministic, no agent
-loop). Compared to Healenium: no Docker/PostgreSQL, git-committable store.
-Compared to LLM-first healers: the LLM is the last resort, not the engine.
+| Package | What |
+|---|---|
+| `@relocator/playwright` | The fixture — this is what you install |
+| `@relocator/core` | Scoring engine (same code runs in benchmarks and in-page) |
+| `@relocator/llm` | Optional Tier 3 providers (Anthropic / Ollama) |
+| `@relocator/patch` | `relocator-patch` CLI: heals → reviewable diffs |
+| `@relocator/reporter` | Run summary, CI annotations, HTML report |
 
 ## Development
 
 ```sh
-pnpm install
-pnpm build
-pnpm test                 # unit + integration
-./benchmarks/fetch-data.sh && pnpm bench:similo
+pnpm install && pnpm build && pnpm test
+./benchmarks/fetch-data.sh && pnpm bench:similo && pnpm bench:mutations
 ```
 
-License: Apache-2.0 (planned).
+Requires Playwright ≥ 1.53 (verified by a CI compatibility matrix).
+License: Apache-2.0.
