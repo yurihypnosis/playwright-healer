@@ -9,6 +9,8 @@ only the selectors rotted. Relocator finds the same element again at runtime
 (~10ms), keeps the test running, and hands you the one-line fix to review.
 Real bugs still fail. Only selector rot gets healed.
 
+![How Relocator heals a rotted selector](docs/demo.gif)
+
 ## Setup
 
 ```ts
