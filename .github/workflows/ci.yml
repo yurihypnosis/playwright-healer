@@ -29,6 +29,38 @@ jobs:
       - name: Mutation harness (heal rate / false-heal rate quality gates)
         run: pnpm bench:mutations
 
+  playwright-compat:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Verified support range (see peerDependencies). 1.45–1.52 are
+        # unsupported: <1.53 hangs at startup under modern Node, and <1.60
+        # needed the constructor pass-through fix that these jobs guard.
+        playwright-version: ['1.53.2', '1.57.0', '1.61.1']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      # Build against our devDep types FIRST; old @playwright/test type
+      # definitions differ and are irrelevant to the runtime check.
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - name: Pin Playwright ${{ matrix.playwright-version }}
+        run: |
+          printf 'overrides:\n  "@playwright/test": %s\n' "${{ matrix.playwright-version }}" >> pnpm-workspace.yaml
+          pnpm install --no-frozen-lockfile
+      - name: Proxy checklist + integration on ${{ matrix.playwright-version }}
+        run: |
+          pnpm --filter @relocator/spike-playwright-proxy exec playwright install --with-deps chromium
+          pnpm --filter @relocator/spike-playwright-proxy exec playwright test
+          cd packages/playwright && node build-inpage.mjs && ./node_modules/.bin/playwright test
+
   benchmark:
     runs-on: ubuntu-latest
     steps:

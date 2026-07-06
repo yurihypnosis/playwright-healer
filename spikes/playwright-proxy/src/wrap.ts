@@ -131,6 +131,7 @@ export function wrapLocator(locator: Locator, hooks: WrapHooks, callsite?: Calls
       // private state not reachable through the proxy.
       const value = Reflect.get(target, prop, target);
       if (typeof value !== 'function') return value;
+      if (prop === 'constructor') return value;
       const name = typeof prop === 'string' ? prop : '';
 
       if (LOCATOR_CHAIN_METHODS.has(name)) {
@@ -183,6 +184,7 @@ export function wrapPage(page: Page, hooks: WrapHooks): Page {
       if (prop === RAW_TARGET) return target;
       const value = Reflect.get(target, prop, target);
       if (typeof value !== 'function') return value;
+      if (prop === 'constructor') return value;
       const name = typeof prop === 'string' ? prop : '';
 
       if (PAGE_LOCATOR_FACTORIES.has(name)) {

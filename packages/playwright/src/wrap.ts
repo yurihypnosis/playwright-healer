@@ -123,6 +123,14 @@ const LOCATOR_ACTION_METHODS = new Set([
 export const RAW_TARGET = Symbol('relocator.rawTarget');
 const LOCATOR_KEY = '__relocatorKey';
 
+/**
+ * Properties that must be returned raw even though they are functions.
+ * Playwright's expect() (< 1.60) brand-checks `receiver.constructor.name`;
+ * wrapping `constructor` in a pass-through arrow gave it an empty name and
+ * broke every web-first assertion on proxied locators/pages.
+ */
+const RAW_FUNCTION_PROPS = new Set(['constructor']);
+
 export function unwrap<T>(value: T): T {
   const raw = (value as { [RAW_TARGET]?: T } | null | undefined)?.[RAW_TARGET];
   return raw ?? value;
@@ -179,6 +187,7 @@ function wrapFrameLocator(
       if (prop === RAW_TARGET) return target;
       const value = Reflect.get(target, prop, target);
       if (typeof value !== 'function') return value;
+      if (RAW_FUNCTION_PROPS.has(typeof prop === 'string' ? prop : '')) return value;
       const name = typeof prop === 'string' ? prop : '';
 
       if (name === 'frameLocator') {
@@ -212,6 +221,7 @@ export function wrapLocator(locator: Locator, hooks: WrapHooks, meta: LocatorMet
       if (prop === LOCATOR_KEY) return meta.key;
       const value = Reflect.get(target, prop, target);
       if (typeof value !== 'function') return value;
+      if (RAW_FUNCTION_PROPS.has(typeof prop === 'string' ? prop : '')) return value;
       const name = typeof prop === 'string' ? prop : '';
 
       if (name === 'frameLocator') {
@@ -278,6 +288,7 @@ export function wrapPage(page: Page, hooks: WrapHooks): Page {
       if (prop === RAW_TARGET) return target;
       const value = Reflect.get(target, prop, target);
       if (typeof value !== 'function') return value;
+      if (RAW_FUNCTION_PROPS.has(typeof prop === 'string' ? prop : '')) return value;
       const name = typeof prop === 'string' ? prop : '';
 
       if (name === 'frameLocator') {
